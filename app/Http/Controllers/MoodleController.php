@@ -68,8 +68,8 @@ class MoodleController extends Controller
                 'type' => 'moodle',
                 'default_color' => $color,
             ]
-            );
-          
+            );          
+
             $count = 0;
             foreach ($getCourses as $course) {
                 $courseName = $course['fullname'];
@@ -148,26 +148,43 @@ class MoodleController extends Controller
                 'moodlewsrestformat' => 'json'
             ])->json();
 
-            if (isset($getUserInfo['exception'])) {
-                #If the token is invalid, get a new one and update the platform
-                $newToken = $this->getToken($url, $platform->username, $platform->password);
+            #Log::info('getUserInfo', ['response' => $getUserInfo]);
+            
+            if (isset($getUserInfo['errorcode']) && $getUserInfo['errorcode'] === 'invalidtoken') {
+                // Token invalid. Credentials input 
+                $providedUsername = $request->input('username');
+                $providedPassword = $request->input('password');
+                
+                $newToken = null;
+
+                if (!empty($providedUsername) && !empty($providedPassword)) {
+                    $newToken = $this->getToken($url, $providedUsername, $providedPassword);
+                }
 
                 if (empty($newToken)) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Credenciales incorrectas o usuario no válido.'
+                        'message' => 'Credenciales incorrectas o usuario no válido.',                      'reauth_required' => true
                     ], 401);
                 }
 
+                // Save new token and continue.
                 $platform->token = $newToken;
                 $platform->save();
-                
+
                 $getUserInfo = Http::get($url . '/webservice/rest/server.php', [
                     'wstoken' => $platform->token,
                     'wsfunction' => 'core_webservice_get_site_info',
                     'moodlewsrestformat' => 'json'
                 ])->json();
             }
+
+            if (isset($getUserInfo['exception'])) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Credenciales incorrectas o usuario no válido.'
+                    ], 401);
+                }
 
             // Obtener cursos del usuario
             $getCourses = Http::get($url . '/webservice/rest/server.php', [

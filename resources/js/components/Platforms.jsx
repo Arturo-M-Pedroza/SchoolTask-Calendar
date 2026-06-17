@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCw } from "lucide-react";
 import { Toaster, toast } from 'react-hot-toast';
+import MoodleReauthModal from './MoodleReauthModal';
 
 export default function Platforms() {
   const [platforms, setPlatforms] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [reauthOpen, setReauthOpen] = useState(false);
+  const [reauthUrl, setReauthUrl] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     url: '',
@@ -106,14 +109,55 @@ export default function Platforms() {
       });
 
       const data = await res.json();
-      if (data.success) toast.success(data.message);
-      else toast.error(data.message);
+      if (res.status === 401 && data.reauth_required) {
+        // Prompt user for credentials
+        setReauthUrl(url);
+        setReauthOpen(true);
+      } else {
+        if (data.success) {
+          toast.success(data.message);
+          fetchPlatforms();
+        } else {
+          toast.error(data.message);
+        }
+      }
     } catch (err) {
       toast.error("Error al refrescar la plataforma");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
+
+  const handleReauthSubmit = async ({ url, username, password }) => {
+    setLoading(true);
+    try {
+      const res = await fetch('/moodle/refresh', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+        },
+        body: JSON.stringify({ url, username, password })
+      });
+
+      const data = await res.json();
+      if (res.status === 401 && data.reauth_required) {
+        toast.error(data.message || 'Credenciales incorrectas o usuario no válido.');
+      } else if (data.success) {
+        toast.success(data.message);
+        setReauthOpen(false);
+        setReauthUrl(null);
+        fetchPlatforms();
+      } else {
+        toast.error(data.message || 'Error autenticando');
+      }
+    } catch (err) {
+      toast.error('Error al reautenticar');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     fetchPlatforms();
@@ -125,6 +169,8 @@ export default function Platforms() {
               toastOptions={{
                 duration: 5000,
               }}/>
+
+    <MoodleReauthModal open={reauthOpen} url={reauthUrl} onClose={() => { setReauthOpen(false); setReauthUrl(null); }} onSubmit={handleReauthSubmit} />
 
     <div className="p-6">
       

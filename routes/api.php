@@ -1,34 +1,18 @@
 <?php
 
+use App\Http\Controllers\AgentController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Models\Task;
+use Illuminate\Support\Facades\Auth;
 
-Route::post('/moodle-import', function (Request $request) {
-    $request->validate([
-        'url' => 'required|url',
-        'username' => 'required|string',
-        'password' => 'required|string',
-    ]);
-
-    // Aquí conectarías con Moodle usando los datos del usuario
-    // Ejemplo simulado:
-    $tasksFromMoodle = [
-        ['course_name' => 'Matemáticas', 'title' => 'Tarea 1', 'due_date' => '2025-10-15'],
-        ['course_name' => 'Física', 'title' => 'Tarea 2', 'due_date' => '2025-10-18'],
-    ];
-
-    foreach ($tasksFromMoodle as $task) {
-        Task::updateOrCreate(
-            ['title' => $task['title'], 'course_name' => $task['course_name']],
-            $task
-        );
-    }
-
-    return response()->json(['message' => 'Tareas importadas correctamente']);
+Route::prefix('agent')->middleware('auth:sanctum')->group(function () {
+    Route::post('/auth', [AgentController::class, 'authenticate']);
+    Route::get('/tasks', [AgentController::class, 'getTasks']);
+    Route::post('/tasks', [AgentController::class, 'createTask']);
+    Route::patch('/tasks/{id}/complete', [AgentController::class, 'completeTask']);
+    Route::patch('/tasks/{id}', [AgentController::class, 'updateTask']);
 });
 
-
-Route::get('/tasks', function () {
-    return Task::all();
-});
+// Endpoint para obtener/renovar el token
+Route::post('/agent/auth', [AgentController::class, 'authenticate']);

@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Log;
 class TaskController extends Controller
 {
     public function getTasks() {
-        return response()->json(Task::all());
+        return response()->json(Auth::user()->tasks);
     }
 
     public function changeStatus(Request $request) {
